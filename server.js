@@ -1,6 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 const pool = require("./database"); // PostgreSQL Pool
 
 const app = express();
@@ -29,32 +28,21 @@ app.get("/api/orders", async (req, res) => {
     }
 });
 
-// ✅ Fetch a Single Order by Transaction ID
-app.get("/api/orders/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query("SELECT * FROM Order2 WHERE transaction_id = $1", [id]);
-
-        if (!result.rows.length) {
-            return res.status(404).json({ message: "Order not found" });
-        }
-
-        res.json(result.rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ✅ Add a New Order
+// ✅ Add a New Order (Fixed Timestamp Issue)
 app.post("/api/orders", async (req, res) => {
     try {
         await pool.query("BEGIN");
 
         const { transaction_id, client_name, client_contact, paint_type, color_code, category, priority, start_time, estimated_completion, current_status } = req.body;
 
+        // ✅ Validate Required Fields
         if (!transaction_id || !client_name || !client_contact || !paint_type || !category || !priority) {
             return res.status(400).json({ error: "Missing required fields" });
         }
+
+        // ✅ Ensure Estimated Completion is a Timestamp
+        const formattedETC = new Date(start_time);
+        formattedETC.setMinutes(formattedETC.getMinutes() + 40); // Adjust mixing time
 
         const values = [
             transaction_id,
@@ -65,7 +53,7 @@ app.post("/api/orders", async (req, res) => {
             category,
             priority || "Standard",
             start_time || new Date().toISOString(),
-            estimated_completion || "N/A",
+            formattedETC.toISOString(), // ✅ Fixed timestamp format
             current_status || "Pending"
         ];
 
@@ -80,9 +68,13 @@ app.post("/api/orders", async (req, res) => {
         const newOrder = await pool.query(query, values);
         await pool.query("COMMIT");
 
-        res.status(201).json(newOrder.rows[0]);
+        console.log("✅ Inserted Order:", newOrder.rows[0]); // ✅ Debug Log
+
+        res.status(201).json(newOrder.rows[0]); // ✅ Return inserted order
+
     } catch (err) {
         await pool.query("ROLLBACK");
+        console.error("🚨 Order Insertion Failed:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
