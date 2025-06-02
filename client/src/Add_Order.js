@@ -1,75 +1,117 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { calculateETC } from "./utils/calculateETC";
 
-// Use relative URL for API (works on both local and production)
 const BASE_URL = process.env.REACT_APP_API_URL ?? "http://localhost:3000";
 
 const AddOrder = () => {
-    const [transactionID, setTransactionID] = useState("");
     const [clientName, setClientName] = useState("");
     const [clientContact, setClientContact] = useState("");
+    const [category, setCategory] = useState("New Mix");
     const [paintType, setPaintType] = useState("");
     const [colorCode, setColorCode] = useState("");
-    const [category, setCategory] = useState("New Mix");
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+
+    // ✅ Generate Unique Transaction ID
+    const generateTransactionID = () => {
+        const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const randomPart = Math.floor(1000 + Math.random() * 9000);
+        return `TXN-${datePart}-${randomPart}`;
+    };
+
+    // ✅ Validate Contact Number (Only 10 digits)
+    const validateContact = (input) => {
+        return /^\d{10}$/.test(input);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setMessage("");
 
-       const newOrder = {  
-            transaction_id: transactionID,  
-            client_name: clientName,  // ✅ Fixes inconsistency with backend  
-            client_contact: clientContact,  
-            paint_type: paintType,  
-            color_code: category === "New Mix" ? "Pending" : colorCode || "N/A",  // ✅ Fixes `color_code` casing  
-            category,  
-            start_time: new Date().toISOString(),  
-            estimated_completion: "N/A",  
-            current_status: "Waiting"  
+        console.log("📝 Validating form input...");
+
+        if (!validateContact(clientContact)) {
+            alert("❌ Contact number must be exactly 10 digits!");
+            setLoading(false);
+            return;
+        }
+
+        if (paintType.trim() === "") {
+            alert("❌ Paint Type cannot be empty!");
+            setLoading(false);
+            return;
+        }
+
+        const newTransactionID = generateTransactionID();
+        console.log("✅ Generated Unique Transaction ID:", newTransactionID);
+
+        const startTime = new Date().toISOString();
+        const estimatedCompletionTime = new Date();
+        estimatedCompletionTime.setMinutes(estimatedCompletionTime.getMinutes() + 40); // ✅ Fixed Estimated Completion Format
+
+        const newOrder = {
+            transaction_id: newTransactionID,
+            client_name: clientName,
+            client_contact: clientContact,
+            paint_type: paintType,
+            color_code: category === "New Mix" ? "Pending" : colorCode || "N/A",
+            category,
+            priority: "Standard",
+            start_time: startTime,
+            estimated_completion: estimatedCompletionTime.toISOString(), // ✅ Fixed Format
+            current_status: "Waiting"
         };
 
+        console.log("🚀 Sending order data:", newOrder);
+
         try {
-            const response = await axios.post(`${BASE_URL}/api/orders`, newOrder);
-            if (response.data && response.data.transaction_id) {
+            const response = await axios.post(`${BASE_URL}/api/orders`, newOrder, {
+                headers: { "Content-Type": "application/json", Accept: "application/json" }
+            });
+
+            if (response.data?.transaction_id) {
+                console.log("✅ Order added successfully:", response.data);
                 setMessage("✅ Order added successfully!");
-                // Reset form
-                setTransactionID("");
-                setClientName("");
-                setClientContact("");
-                setPaintType("");
-                setColorCode("");
-                setCategory("New Mix");
             } else {
-                setMessage("🚨 Error: Order data missing in response!");
+                console.error("🚨 Error: Order data missing in response!", response.data);
+                setMessage("🚨 Error adding order!");
             }
+
         } catch (error) {
-            setMessage("🚨 Error adding order: " + (error.response?.data?.error || error.message));
+            console.error("🚨 Error adding order:", error.message);
+            setMessage("❌ Error adding order: " + error.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const isFormValid = transactionID && clientName && clientContact && paintType && category;
-
     return (
-        <div>
+        <div className="container mt-4">
             <h2>Add New Order</h2>
             <form onSubmit={handleSubmit}>
-                <input type="text" value={transactionID} onChange={(e) => setTransactionID(e.target.value)} placeholder="Transaction ID" required />
-                <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Client Name" required />
-                <input type="text" value={clientContact} onChange={(e) => setClientContact(e.target.value)} placeholder="Client Contact" required />
-                <input type="text" value={paintType} onChange={(e) => setPaintType(e.target.value)} placeholder="Paint Type" required />
-                <input type="text" value={colorCode} onChange={(e) => setColorCode(e.target.value)} placeholder="Color Code" />
-                <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                    <option value="New Mix">New Mix</option>
-                    <option value="Reorder Mix">Reorder Mix</option>
-                    <option value="Colour Code">Colour Code</option>
+                <label>Client Name:</label>
+                <input type="text" className="form-control" value={clientName} onChange={(e) => setClientName(e.target.value)} required />
+
+                <label>Client Contact:</label>
+                <input type="text" className="form-control" value={clientContact} onChange={(e) => setClientContact(e.target.value)} required />
+
+                <label>Category:</label>
+                <select className="form-control" value={category} onChange={(e) => setCategory(e.target.value)}>
+                    <option>New Mix</option>
+                    <option>Reorder Mix</option>
+                    <option>Colour Code</option>
                 </select>
-                <button type="submit" disabled={!isFormValid || loading}>
-                    {loading ? "Submitting..." : "Submit Order"}
+
+                <label>Paint Type:</label>
+                <input type="text" className="form-control" value={paintType} onChange={(e) => setPaintType(e.target.value)} required />
+
+                <label>Colour Code:</label>
+                <input type="text" className="form-control" value={colorCode} onChange={(e) => setColorCode(e.target.value)} disabled={category === "New Mix"} />
+
+                <button type="submit" className="btn btn-primary mt-3" disabled={loading}>
+                    {loading ? "Submitting..." : "Add Order"}
                 </button>
             </form>
             {message && <p>{message}</p>}
