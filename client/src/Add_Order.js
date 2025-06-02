@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 
 // Use relative URL for API (works on both local and production)
-const BASE_URL = process.env.REACT_APP_API_URL || "";
+const BASE_URL = process.env.REACT_APP_API_URL ?? "http://localhost:3000";
 
 const AddOrder = () => {
     const [transactionID, setTransactionID] = useState("");
@@ -19,16 +19,16 @@ const AddOrder = () => {
         setLoading(true);
         setMessage("");
 
-        const newOrder = { 
-            transaction_id: transactionID, 
-            customer_name: clientName, 
-            client_contact: clientContact, 
-            paint_type: paintType, 
-            colour_code: category === "New Mix" ? "Pending" : colorCode || "N/A", 
-            category, 
-            start_time: new Date().toISOString(),
-            estimated_completion: "N/A", 
-            current_status: "Waiting" 
+       const newOrder = {  
+            transaction_id: transactionID,  
+            client_name: clientName,  // ✅ Fixes inconsistency with backend  
+            client_contact: clientContact,  
+            paint_type: paintType,  
+            color_code: category === "New Mix" ? "Pending" : colorCode || "N/A",  // ✅ Fixes `color_code` casing  
+            category,  
+            start_time: new Date().toISOString(),  
+            estimated_completion: "N/A",  
+            current_status: "Waiting"  
         };
 
         try {

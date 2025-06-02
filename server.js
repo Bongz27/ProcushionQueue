@@ -1,19 +1,19 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const pool = require("./database"); // PostgreSQL Pool from `database.js`
+const pool = require("./database"); // PostgreSQL Pool
 
 const app = express();
 app.use(express.json()); // Enable JSON parsing
 
-// CORS configuration
+// ✅ CORS Configuration
 app.use(cors({
     origin: "*",
     methods: ["GET", "POST", "PUT"],
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-// ✅ Fetch Orders from PostgreSQL
+// ✅ Fetch All Orders
 app.get("/api/orders", async (req, res) => {
     try {
         console.log("🛠 Fetching latest orders...");
@@ -24,6 +24,22 @@ app.get("/api/orders", async (req, res) => {
         }
 
         res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ✅ Fetch a Single Order by Transaction ID
+app.get("/api/orders/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query("SELECT * FROM Order2 WHERE transaction_id = $1", [id]);
+
+        if (!result.rows.length) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        res.json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -71,18 +87,11 @@ app.post("/api/orders", async (req, res) => {
     }
 });
 
-// ✅ Root health check
+// ✅ Health Check Endpoint
 app.get("/health", (req, res) => {
-    res.send("🚀 Backend is alive!!");
+    res.send("🚀 Backend is alive mchana!!");
 });
 
-// ✅ Serve React static files AFTER API routes
-app.use(express.static(path.join(__dirname, "client", "build")));
-
-app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "client", "build", "index.html"));
-});
-
-// ✅ Start the server
+// ✅ Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

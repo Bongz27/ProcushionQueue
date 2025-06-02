@@ -1,7 +1,8 @@
-require('dotenv').config();
+require("dotenv").config();
+
 const { Pool } = require("pg");
 
-// ✅ Railway Database Configuration
+// ✅ PostgreSQL Database Configuration
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
@@ -16,8 +17,7 @@ pool.connect()
     .then(() => console.log("✅ Connected to PostgreSQL successfully!"))
     .catch((err) => {
         console.error("❌ Database Connection Error:", err.message);
-        process.exit(1);
+        process.exitCode = 1;  // Allow logging without immediate shutdown
     });
 
 module.exports = pool;
-
